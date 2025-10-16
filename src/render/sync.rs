@@ -1,6 +1,5 @@
 use bevy::prelude::*;
-use crate::core::tile::{TileLayer, Tileset, TileId};
-use super::tilemaps::{Layers, BaseTile, OverlayTile};
+use bevy_ecs_tilemap::prelude::*;
 
 #[derive(Component)]
 pub struct GridPos { pub x: u32, pub y: u32 }
@@ -17,15 +16,25 @@ pub fn world_from_grid(x: u32, y: u32) -> Vec3 {
     Vec3::new(x as f32 * 16.0 + 8.0, y as f32 * 16.0 + 8.0, 0.0)
 }
 
-pub fn spawn_tile_sprite(commands: &mut Commands, tileset: &Tileset, tile: TileId, x: u32, y: u32) {
-    let def = tileset.def(tile);
-    let (size, z, tag) = match def.layer { TileLayer::Base => (14.0, 0.0, "BaseTile"), TileLayer::Overlay => (8.0, 1.0, "OverlayTile") };
-    commands.spawn((
-        Sprite { color: def.color, custom_size: Some(Vec2::splat(size)), ..Default::default() },
-        Transform::from_translation(world_from_grid(x, y) + Vec3::new(0.0, 0.0, z)),
-        GlobalTransform::default(),
-        Visibility::Visible,
-        GridPos { x, y },
-        Name::new(tag),
-    ));
+pub fn set_tile_in_tilemap(
+    commands: &mut Commands,
+    storage: &mut TileStorage,
+    tilemap_entity: Entity,
+    color: Color,
+    x: u32,
+    y: u32,
+) {
+    let pos = TilePos { x, y };
+    // If there's an existing tile at this position, we can choose to overwrite it:
+    if let Some(existing) = storage.get(&pos) {
+        commands.entity(existing).despawn();
+    }
+    let tile_entity = commands.spawn((TileBundle {
+        position: pos,
+        tilemap_id: TilemapId(tilemap_entity),
+        texture_index: TileTextureIndex(0),
+        color: TileColor(color),
+        ..Default::default()
+    }, Name::new("Tile"))).id();
+    storage.set(&pos, tile_entity);
 }

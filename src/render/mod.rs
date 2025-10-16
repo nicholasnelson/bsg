@@ -8,7 +8,8 @@ pub struct RenderPlugin;
 
 impl Plugin for RenderPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Startup, setup_camera);
+        app.add_plugins((overlay::DebugGridPlugin, tilemaps::GameTilemapsPlugin))
+            .add_systems(Startup, setup_camera);
     }
 }
 

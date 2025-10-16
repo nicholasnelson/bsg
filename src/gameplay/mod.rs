@@ -4,7 +4,7 @@ pub mod rules;
 use bevy::prelude::*;
 use crate::core::CorePlugin;
 use crate::render::sync::TileSyncPlugin;
-use crate::render::tilemaps::TilemapPlugin;
+use bevy_ecs_tilemap::TilemapPlugin;
 use placement::PlacementPlugin;
 
 pub struct GameplayPlugin;
