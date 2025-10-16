@@ -5,17 +5,18 @@ use bevy_ecs_tilemap::prelude::*;
 use crate::core::map::MapState;
 use crate::core::grid::GridConfig;
 
+/**
+ * Groups the tilemap entity IDs for each render layer so systems can find and update them.
+ * Layers:
+ * - base: terrain/background
+ * - overlay: general markers/UI tiles
+ * - pipes: normal view for pipes
+ * - pipes_eng: engineering view for pipes (toggled visible in engineering mode)
+ */
 #[derive(Resource)]
-pub struct TilemapLayers { pub base: Entity, pub overlay: Entity }
+pub struct TilemapLayers { pub base: Entity, pub overlay: Entity, pub pipes: Entity, pub pipes_eng: Entity }
 
-#[derive(Resource, Clone)]
-pub struct TilemapParams {
-    pub size: TilemapSize,
-    pub grid_size: TilemapGridSize,
-    pub tile_size: TilemapTileSize,
-    pub map_type: TilemapType,
-    pub anchor: TilemapAnchor,
-}
+// Removed TilemapParams; gameplay now converts world->grid via core GridConfig
 
 pub struct GameTilemapsPlugin;
 impl Plugin for GameTilemapsPlugin {
@@ -24,6 +25,15 @@ impl Plugin for GameTilemapsPlugin {
     }
 }
 
+/**
+ * Creates all tilemap layers (base, overlay, pipes, pipes_eng) with consistent sizing and grid params.
+ * The engineering pipes layer starts Hidden; we toggle between pipes and pipes_eng at runtime.
+ *
+ * @param commands - ECS command buffer for spawning entities/resources
+ * @param images - asset store used to create a placeholder tile texture
+ * @param map - current map state to size the tilemaps
+ * @param grid - grid configuration (tile size, etc.)
+ */
 fn setup_tilemaps(
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
@@ -41,9 +51,8 @@ fn setup_tilemaps(
     let anchor = TilemapAnchor::TopLeft;
 
     // Base layer
-    let mut base_storage = TileStorage::empty(map_size);
+    let base_storage = TileStorage::empty(map_size);
     let base_entity = commands.spawn_empty().id();
-    let base_id = TilemapId(base_entity);
     commands.entity(base_entity).insert(TilemapBundle {
         grid_size,
         size: map_size,
@@ -57,9 +66,8 @@ fn setup_tilemaps(
     });
 
     // Overlay layer
-    let mut overlay_storage = TileStorage::empty(map_size);
+    let overlay_storage = TileStorage::empty(map_size);
     let overlay_entity = commands.spawn_empty().id();
-    let overlay_id = TilemapId(overlay_entity);
     commands.entity(overlay_entity).insert(TilemapBundle {
         grid_size,
         size: map_size,
@@ -72,6 +80,43 @@ fn setup_tilemaps(
         ..Default::default()
     });
 
-    commands.insert_resource(TilemapLayers { base: base_entity, overlay: overlay_entity });
-    commands.insert_resource(TilemapParams { size: map_size, grid_size, tile_size, map_type, anchor });
+    // Pipes (normal view) layer
+    let pipes_storage = TileStorage::empty(map_size);
+    let pipes_entity = commands.spawn_empty().id();
+    commands.entity(pipes_entity).insert((
+        TilemapBundle {
+            grid_size,
+            size: map_size,
+            storage: pipes_storage.clone(),
+            texture: TilemapTexture::Single(tex_handle.clone()),
+            tile_size,
+            map_type,
+            anchor,
+            transform: Transform::default(),
+            ..Default::default()
+        },
+        Name::new("Pipes"),
+    ));
+
+    // Pipes (engineering view) layer
+    let pipes_eng_storage = TileStorage::empty(map_size);
+    let pipes_eng_entity = commands.spawn_empty().id();
+    commands.entity(pipes_eng_entity).insert((
+        TilemapBundle {
+            grid_size,
+            size: map_size,
+            storage: pipes_eng_storage.clone(),
+            texture: TilemapTexture::Single(tex_handle.clone()),
+            tile_size,
+            map_type,
+            anchor,
+            transform: Transform::default(),
+            ..Default::default()
+        },
+        Name::new("PipesEngineering"),
+    ));
+    // Set initial visibility after inserting the bundle to avoid duplicate Visibility in the same bundle
+    commands.entity(pipes_eng_entity).insert(Visibility::Hidden);
+
+    commands.insert_resource(TilemapLayers { base: base_entity, overlay: overlay_entity, pipes: pipes_entity, pipes_eng: pipes_eng_entity });
 }

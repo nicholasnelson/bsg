@@ -10,8 +10,7 @@ pub struct DebugGridPlugin;
 
 impl Plugin for DebugGridPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource::<GridConfig>(Default::default())
-            .insert_resource::<DebugGridConfig>(Default::default())
+        app.insert_resource::<DebugGridConfig>(Default::default())
             .add_systems(Startup, setup_debug_grid)
             .add_systems(Update, sync_debug_grid_visibility);
     }

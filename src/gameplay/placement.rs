@@ -2,8 +2,10 @@ use bevy::prelude::*;
 use crate::core::map::MapState;
 use crate::core::tile::{TileId, Tileset};
 use bevy_ecs_tilemap::prelude::*;
-use crate::render::tilemaps::{TilemapLayers, TilemapParams};
+use crate::render::tilemaps::TilemapLayers;
 use crate::render::sync::set_tile_in_tilemap;
+use crate::input::{GameplayInputState, Tool as InputTool};
+use crate::core::grid::GridConfig;
 
 pub struct PlacementPlugin;
 
@@ -13,33 +15,29 @@ impl Plugin for PlacementPlugin {
     }
 }
 
-fn cursor_to_tilepos(window: &Window, camera: (&GlobalTransform, &Camera), map_tf: &Transform, params: &TilemapParams) -> Option<TilePos> {
-    let (camera_transform, camera) = camera;
-    let Some(cursor_pos) = window.cursor_position() else { return None };
-    let Ok(world_2d) = camera.viewport_to_world_2d(camera_transform, cursor_pos) else { return None };
-    let inv = map_tf.to_matrix().inverse();
-    let local3 = inv.mul_vec4(Vec4::new(world_2d.x, world_2d.y, 0.0, 1.0)).truncate();
-    let local2 = Vec2::new(local3.x, local3.y);
-    TilePos::from_world_pos(&local2, &params.size, &params.grid_size, &params.tile_size, &params.map_type, &params.anchor)
-}
 
+/**
+ * Places a base tile on left-click unless a pipe tool is active (pipe tools own left-drag).
+ * Consumes high-level gameplay input instead of raw inputs.
+ */
 fn place_base_on_left_click(
-    buttons: Res<ButtonInput<MouseButton>>,
-    windows: Query<&Window>,
-    camera_q: Query<(&GlobalTransform, &Camera)>,
+    gi: Res<GameplayInputState>,
     mut map: ResMut<MapState>,
     tileset: Res<Tileset>,
     mut commands: Commands,
     mut q_base: Query<&mut TileStorage>,
     layers: Res<TilemapLayers>,
-    params: Res<TilemapParams>,
-    q_tf: Query<&Transform>,
+    grid: Res<GridConfig>,
 ) {
-    if !buttons.just_pressed(MouseButton::Left) { return }
-    let Ok(window) = windows.single() else { return };
-    let Ok(camera) = camera_q.single() else { return };
-    let Ok(map_tf) = q_tf.get(layers.base) else { return };
-    if let Some(tp) = cursor_to_tilepos(window, camera, map_tf, &params) {
+    if matches!(gi.selected_tool, InputTool::PipePlace | InputTool::PipeErase) { return }
+    if !gi.left_just_pressed { return }
+    if let Some(world) = gi.world_cursor {
+        let local = Vec2::new(world.x, world.y);
+        let map_size = TilemapSize { x: map.size.w, y: map.size.h };
+        let grid_size = TilemapGridSize { x: grid.tile_size, y: grid.tile_size };
+        let tile_size = TilemapTileSize { x: grid.tile_size, y: grid.tile_size };
+        let tp = TilePos::from_world_pos(&local, &map_size, &grid_size, &tile_size, &TilemapType::Square, &TilemapAnchor::TopLeft);
+        let Some(tp) = tp else { return };
         map.set_base(tp.x, tp.y, TileId::Dirt);
         let mut storage = q_base.get_mut(layers.base).unwrap();
         let color = tileset.def(TileId::Dirt).color;
@@ -47,23 +45,28 @@ fn place_base_on_left_click(
     }
 }
 
+/**
+ * Places an overlay marker on right-click unless a pipe tool is active.
+ * Consumes high-level gameplay input instead of raw inputs.
+ */
 fn place_overlay_on_right_click(
-    buttons: Res<ButtonInput<MouseButton>>,
-    windows: Query<&Window>,
-    camera_q: Query<(&GlobalTransform, &Camera)>,
+    gi: Res<GameplayInputState>,
     mut map: ResMut<MapState>,
     tileset: Res<Tileset>,
     mut commands: Commands,
     mut q_overlay: Query<&mut TileStorage>,
     layers: Res<TilemapLayers>,
-    params: Res<TilemapParams>,
-    q_tf: Query<&Transform>,
+    grid: Res<GridConfig>,
 ) {
-    if !buttons.just_pressed(MouseButton::Right) { return }
-    let Ok(window) = windows.single() else { return };
-    let Ok(camera) = camera_q.single() else { return };
-    let Ok(map_tf) = q_tf.get(layers.base) else { return };
-    if let Some(tp) = cursor_to_tilepos(window, camera, map_tf, &params) {
+    if matches!(gi.selected_tool, InputTool::PipePlace | InputTool::PipeErase) { return }
+    if !gi.right_just_pressed { return }
+    if let Some(world) = gi.world_cursor {
+        let local = Vec2::new(world.x, world.y);
+        let map_size = TilemapSize { x: map.size.w, y: map.size.h };
+        let grid_size = TilemapGridSize { x: grid.tile_size, y: grid.tile_size };
+        let tile_size = TilemapTileSize { x: grid.tile_size, y: grid.tile_size };
+        let tp = TilePos::from_world_pos(&local, &map_size, &grid_size, &tile_size, &TilemapType::Square, &TilemapAnchor::TopLeft);
+        let Some(tp) = tp else { return };
         map.set_overlay(tp.x, tp.y, Some(TileId::Marker));
         let mut storage = q_overlay.get_mut(layers.overlay).unwrap();
         let color = tileset.def(TileId::Marker).color;

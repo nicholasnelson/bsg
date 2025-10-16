@@ -1,0 +1,97 @@
+---
+alwaysApply: true
+---
+
+# Cursor Rules — Bevy 0.17
+
+## Workflow guardrails
+- After each change set: run `cargo clippy --all-targets --all-features -W clippy::pedantic` and `cargo build`. Fix errors. Triage warnings. Silence only with justification in-code.
+
+## Scope
+- Target: Rust + Bevy 0.17.
+- Goal: fast, deterministic, well-structured gameplay code.
+- All public items must have rustdoc comments. Use `///` for items and `//!` for crate/modules. Explain intent and invariants.
+
+## Project layout
+- Crates: `/core` (types, assets, IDs, catalog), `/gameplay` (rules, sim, pathing), `/input` (actions, mapping), `/render` (tilemaps, VFX, UI). Only `/core` defines shared types; others depend on it.
+
+## Bevy 0.17 specifics
+- Prefer observers and Messages for decoupling. Use explicit ordering where causality matters.
+- Use `StateScoped` for setup/teardown.
+- Use queries over deprecated world iteration utilities.
+
+## Entities
+- Each top-level entity: add `Name` and define cleanup via state scoping or parent-child.
+- Use stable IDs for persistence and networking. Do not store `Entity` across saves.
+
+## Systems and scheduling
+- Keep Update systems small. Break heavy work via messages or state changes.
+- Group per-state systems: `OnEnter`, `OnExit`, `Update`.
+- Use run criteria for message readers.
+
+## Messages and observers
+- Prefer Messages to cross-crate calls. Document producer and consumer for each Message.
+
+## Helpers and macros
+- Keep helpers local to the owning crate. Minimal macros.
+
+## Plugins
+- One plugin per feature area. Register states, systems, and assets inside that plugin. Provide a `PluginGroup` for assembly.
+
+## Performance rules
+- Narrow queries. Use `Without<_>` and component filters.
+- Batch asset loads. Avoid per-frame `AssetServer::load`.
+- Profile with tracing and debug tools. Reduce log noise in release.
+
+## Build profiles
+- Dev: dynamic linking and file watching behind a `dev` feature.
+  - `features.dev = ["bevy/dynamic_linking", "bevy/file_watcher", "bevy/asset_processor"]`
+  - `cargo run --features dev`
+- Release: high `opt-level`, `panic = "abort"`, minimal logging. Align tracing features with Bevy.
+
+## Asset policy
+- Define custom `Asset` + `AssetLoader` in `/core` for catalogs and data. Read-only in `/gameplay` and `/render`.
+- Hot-reload in dev only.
+
+## Input
+- Use `bevy::input` for raw devices. Centralize action mapping in `/input`. Gameplay reads actions, not device state.
+
+## Rendering
+- Presentation toggles are visual only. Do not branch gameplay on view mode.
+
+## Testing and determinism
+- Unit test pure logic in `/gameplay` with no Bevy dependency when feasible.
+- Centralize RNG seeding.
+
+## Error handling
+- Use `Result` and early returns. Avoid panics in `Update`. Startup may panic on fatal config errors.
+
+## Documentation standard
+- Every public struct/enum/trait/function has rustdoc explaining purpose, ownership, invariants, and examples if non-trivial.
+
+## Lints
+- Deny missing docs and common footguns:
+  - In each crate `lib.rs`:
+    ```rust
+    #![deny(missing_docs, rust_2018_idioms)]
+    #![forbid(unsafe_code)]
+    ```
+  - Keep `unsafe` out of game crates.
+
+## Example doc stubs
+
+/// Unique identifier for a persistent game entity.
+///
+/// Stable across saves and networking. Do not conflate with `Entity`.
+#[derive(Clone, Copy, Eq, PartialEq, Hash, Debug)]
+pub struct UnitId(u32);
+
+/// Message fired when a building is placed.
+///
+/// Produced by placement systems in `/gameplay`.
+/// Consumed by pathing and rendering update systems.
+#[derive(Message)]
+pub struct BuildingPlaced {
+    /// World tile position of the placed building.
+    pub tile: IVec2,
+}
