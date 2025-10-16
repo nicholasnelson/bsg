@@ -1,0 +1,51 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "cppvsdbg",
+            "request": "launch",
+            "name": "Debug executable 'space_game_bevy'",
+            "program": "${workspaceFolder}/target/debug/space_game_bevy.exe",
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "windows": {
+                "environment": [
+                    {
+                        "name": "PATH",
+                        "value": "${env:UserProfile}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib/rustlib/x86_64-pc-windows-msvc/lib;${workspaceFolder}/target/debug/deps;{env:PATH}"
+                    },
+                    {
+                        "name": "CARGO_MANIFEST_DIR",
+                        "value": "${workspaceFolder}"
+                    }
+                ],
+            },
+            "preLaunchTask": "cargo build"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'space_game_bevy'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=space_game_bevy",
+                    "--package=space_game_bevy"
+                ],
+                "filter": {
+                    "name": "space_game_bevy",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "LD_LIBRARY_PATH": "${workspaceFolder}/target/debug/deps:${env:HOME}/.rustup/toolchains/stable-x86_64-pc-windows-msvc/lib",
+            }
+        }
+    ]
+}
